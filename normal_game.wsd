@@ -1,0 +1,35 @@
+@startuml
+title General Game
+
+actor Client_1
+participant Server
+actor Client_2
+
+Client_1 -> Server : Connect
+Server -> Client_1 : Connect succesful. Player 1
+
+Client_2 -> Server : Connect
+Server -> Client_2 : Connect succesful. Player 2
+
+Server -> Client_1 : Game Start. Curr_play: 1
+Server -> Client_2 : Game Start. Curr_play: 1
+
+Client_1 -> Server : Make move: 0,0
+Server -> Client_1 : Move made: 0,0. Curr_play: 2
+Server -> Client_2 : Move made: 0,0. Curr_play: 2
+
+Client_2 -> Server : Make move: 3,2
+Server -> Client_2 : illigal move.
+Client_2 -> Server : Make move: 1,1
+Server -> Client_1 : Move made: 1,1. Curr_play: 1
+Server -> Client_2 : Move made: 1,1. Curr_play: 1
+
+box over Client_1,Client_2 : Both players take turns
+
+Server -> Client_1 : Move made: 2,2. Curr_play: 1
+Server -> Client_2 : Move made: 2,2. Curr_play: 1
+
+Client_1 -> Server : Make move: 2,0
+Server -> Client_1 : Move made: 2,0. Winner: 1
+Server -> Client_2 : Move made: 2,0. Winner: 1
+@enduml

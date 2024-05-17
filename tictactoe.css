@@ -1,0 +1,77 @@
+body {
+    display: flex;
+    justify-content: center;
+    /* min-height: 100vh; */
+    flex-direction: column;
+    /* min-width: 100vw; */
+}
+
+body > div, body > header {
+    margin-left: auto;
+    margin-right: auto;
+    min-width: 240px;
+}
+
+#board {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+#board > .row {
+    display: flex;
+    flex-direction: row;
+    width: 240px;
+    margin: auto;
+}
+
+#board > .row > .box {
+    width: 80px;
+    height: 80px;
+    background-color: pink;
+    border-color: black;
+    border-width: 2px;
+    margin: 2px;
+    border-radius: 5px;
+}
+
+header {
+    margin-bottom: 15px;
+}
+
+header > h1 {
+    text-align: center;
+}
+
+header > span {
+    display: inline-block;
+    min-height: 1em;
+}
+
+.controls {
+    border-style: solid;
+    border-width: 1px;
+    border-color: black;
+    border-radius: 5px;
+    padding: 5px;
+}
+
+.controls > * {
+    margin-bottom: 5px;
+}
+
+.controls > button {
+    background-color: palegreen;
+    border-radius: 5px;
+    padding: 3px;
+}
+
+.controls > button:hover {
+    background-color: lightgreen;
+}
+
+.controls > button:active {
+    box-shadow: 2px;
+}
