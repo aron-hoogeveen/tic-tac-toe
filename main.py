@@ -125,32 +125,36 @@ async def game_turn_loop(token: str, player: int):
     """
     while True:
         try:
-            event = json.loads(await GAMES[token]["players"][player-1].recv())
+            websocket = GAMES[token]["players"][player-1]
+            game = GAMES[token]["game"]
+            players = GAMES[token]["players"]
+
+            event = json.loads(await websocket.recv())
             # are we still waiting for player 2?
-            if len(GAMES[token]["players"]) != 2:
-                await send_error(GAMES[token]["players"][player-1], "Waiting for Player 2 to connect.")
+            if len(players) != 2:
+                await send_error(websocket, "Waiting for Player 2 to connect.")
                 continue
             event_type = event.get("type")
             if event_type is None:
-                await send_error(GAMES[token]["players"][player-1], "Malformed request.")
+                await send_error(websocket, "Malformed request.")
                 continue
             if event_type != "make_move":
-                await send_error(GAMES[token]["players"][player-1], "Illegal request. Please send your move.")
+                await send_error(websocket, "Illegal request. Please send your move.")
                 continue
             
             # make sure it is the turn of this player
-            if GAMES[token]["game"].current_player != player:
-                await send_error(GAMES[token]["players"][player-1], "It is not your turn!")
+            if game.current_player != player:
+                await send_error(websocket, "It is not your turn!")
                 continue
 
-            field_check = await ensure_content_fields(GAMES[token]["players"][player-1], event, "row", "column")  # this also sends back the error to the user
+            field_check = await ensure_content_fields(websocket, event, "row", "column")  # this also sends back the error to the user
             if not field_check:
                 # TODO refactor ensure_content_fields() to not send the error, but send it here. The same happens in all the other checks
                 continue
 
-            tup = GAMES[token]["game"].make_move(event["content"]["row"], event["content"]["column"])
+            tup = game.make_move(event["content"]["row"], event["content"]["column"])
             if tup is None:
-                await send_error(GAMES[token]["players"][player-1], "Illegal move.")
+                await send_error(websocket, "Illegal move.")
                 continue
             row, column, game_end = tup
 
@@ -160,14 +164,14 @@ async def game_turn_loop(token: str, player: int):
                 end_event = {
                     "type": "game_end",
                     "content": {
-                        "winner": winner_text[GAMES[token]["game"].winner],
+                        "winner": winner_text[game.winner],
                         "player": player,
                         "row": row,
                         "column": column
                     }
                 }
-                await send_to_players(end_event, GAMES[token]["players"])
-                GAMES[token]["game"].reset()  # allow the players to play again using the same token
+                await send_to_players(end_event, players)
+                game.reset()  # allow the players to play again using the same token
                 continue
             else:
                 move_event = {
@@ -178,7 +182,7 @@ async def game_turn_loop(token: str, player: int):
                         "column": column
                     }
                 }
-                await send_to_players(move_event, GAMES[token]["players"])
+                await send_to_players(move_event, players)
         except websockets.ConnectionClosedOK:
             event = {
                 "type": "game_stopped",
@@ -186,7 +190,7 @@ async def game_turn_loop(token: str, player: int):
                     "msg": "The other player disconnected."
                 }
             }
-            await send_to_players(event, GAMES[token]["players"])
+            await send_to_players(event, players)
             return
         except Exception as e:
             info_log(msg=f"An unexpected error occurred: {e}")
@@ -196,7 +200,7 @@ async def game_turn_loop(token: str, player: int):
                     "msg": "The game stopped."
                 }
             }
-            await send_to_players(event, GAMES[token]["players"])
+            await send_to_players(event, players)
             raise
 
 
