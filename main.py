@@ -41,7 +41,8 @@ async def start_game(websocket):
     token = secrets.token_urlsafe(10)
     GAMES[token] = {
         "game": game, 
-        "players": players
+        "players": players,
+        "tasks": set()
     }
 
     info_log(id=f"GAME({token})", msg="Player 1 connected to game.")
@@ -56,22 +57,32 @@ async def start_game(websocket):
         }
         await websocket.send(json.dumps(event))
 
-        await game_turn_loop(token, 1)
-        # try:
-        #     task = asyncio.create_task(game_turn_loop(token, 1))
-        #     GAMES[token]["tasks"] = [task]
-        # finally:
-        #     # try to inform both players that the game is stopped.
-        #     event = {
-        #         "type": "game_stopped",
-        #         "content": {
-        #             "msg": "The game stopped. Player 1 not available."
-        #         }
-        #     }
-        #     await send_to_players(event, players)
+        try:
+            task = asyncio.create_task(game_turn_loop(token, 1))
+            GAMES[token]["tasks"].add(task)
+            task.add_done_callback(GAMES[token]["tasks"].discard)
+            await task  # actually wait for the main game loop to finish
+        except asyncio.CancelledError:
+            # The other player has disconnected and the game was stopped.
+            try:
+                stop_event = {
+                    "type": "game_stopped",
+                    "content": {
+                        "msg": "The other player has disconnected."
+                    }
+                }
+                await websocket.send(json.dumps(stop_event))
+            except Exception as e:
+                info_log(msg=f"There was an unexpected exception: {e}.")
+        except Exception:
+            # Player 1 disconnected, or there was another error. Either way, the game cannot continue so inform player 2
+            # first remove the task correcponding to player 1 from the set, then cancel player 2's task
+            info_log(id=f"GAME({token})", msg="Player 1 disconnected.")
+            GAMES[token]["tasks"].discard(task)
+            for task in GAMES[token]["tasks"]:
+                task.cancel()
     finally:
         del GAMES[token]
-        # raise
 
 
 async def join_game(websocket, token: str):
@@ -111,11 +122,31 @@ async def join_game(websocket, token: str):
         info_log(msg=f"An error happened while trying to start the game: {e}.")
         return
 
+    # enter the main game loop
     try:
-        await game_turn_loop(token, 2)  # TODO this await must be canceled when Player 1 disconnects for some reason
+        task = asyncio.create_task(game_turn_loop(token, 2))
+        GAMES[token]["tasks"].add(task)
+        task.add_done_callback(GAMES[token]["tasks"].discard)
+        await task  # actually wait for the main game loop to finish
+    except asyncio.CancelledError:
+        # The other player has disconnected and the game was stopped.
+        try:
+            stop_event = {
+                "type": "game_stopped",
+                "content": {
+                    "msg": "The other player has disconnected."
+                }
+            }
+            await websocket.send(json.dumps(stop_event))
+        except Exception as e:
+            info_log(msg=f"There was an unexpected exception: {e}.")
     except Exception:
-        del GAMES[token]
-        raise
+        # Player 2 disconnected, or there was another error. Either way, the game cannot continue so inform player 1
+        # first remove the task correcponding to player 2 from the set, then cancel player 1's task
+        info_log(id=f"GAME({token})", msg="Player 2 disconnected.")
+        GAMES[token]["tasks"].discard(task)
+        for task in GAMES[token]["tasks"]:
+            task.cancel()
 
 
 async def game_turn_loop(token: str, player: int):
@@ -183,25 +214,18 @@ async def game_turn_loop(token: str, player: int):
                     }
                 }
                 await send_to_players(move_event, players)
-        except websockets.ConnectionClosedOK:
-            event = {
-                "type": "game_stopped",
-                "content": {
-                    "msg": "The other player disconnected."
-                }
-            }
-            await send_to_players(event, players)
-            return
+        except websockets.ConnectionClosedOK as e:
+            raise e
         except Exception as e:
             info_log(msg=f"An unexpected error occurred: {e}")
-            event = {
-                "type": "game_stopped",
-                "content": {
-                    "msg": "The game stopped."
-                }
-            }
-            await send_to_players(event, players)
-            raise
+            # event = {
+            #     "type": "game_stopped",
+            #     "content": {
+            #         "msg": "The game stopped."
+            #     }
+            # }
+            # await send_to_players(event, players)
+            raise e
 
 
 async def ensure_content_fields(websocket: websockets.WebSocketServerProtocol, event: dict, *fields: str) -> bool:
@@ -241,7 +265,8 @@ async def send_to_players(event: dict, players: list[websockets.WebSocketServerP
     """Send the event to all players"""
     for player in players:
         try:
-            await player.send(json.dumps(event))
+            if player is not None:
+                await player.send(json.dumps(event))
         except Exception:
             pass
 
