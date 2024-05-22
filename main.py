@@ -113,7 +113,6 @@ async def join_game(websocket, token: str):
     # Player 2 can only join a game where there is only a Player 1
     if len(players) != 1:
         try:
-            print(GAMES[token])
             await send_error(websocket, "This game is already full.")
         finally:
             return
@@ -121,6 +120,7 @@ async def join_game(websocket, token: str):
     # add Player 2 to the game
     players.append(websocket)
     logger.info(f"GAME({token}) - Player 2 connected to game.")
+    logger.debug(GAMES[token])
 
     # start the game for both players
     try:
@@ -166,6 +166,7 @@ async def game_turn_loop(token: str, player: int):
     """
     while True:
         try:
+            logger.debug(f"Start of game loop: {{token: {token}, GAMES:{GAMES[token]}}}")
             websocket = GAMES[token]["players"][player-1]
             game = GAMES[token]["game"]
             players = GAMES[token]["players"]
@@ -213,7 +214,7 @@ async def game_turn_loop(token: str, player: int):
                 }
                 await send_to_players(end_event, players)
                 game.reset()  # allow the players to play again using the same token
-                continue
+                logger.debug(f"The game({token}) has been reset. New state: {GAMES[token]}.")
             else:
                 move_event = {
                     "type": "move_made",
@@ -224,6 +225,7 @@ async def game_turn_loop(token: str, player: int):
                     }
                 }
                 await send_to_players(move_event, players)
+            logger.debug(f"End of game loop: {{token: {token}, GAMES:{GAMES[token]}}}")
         except websockets.ConnectionClosedOK as e:
             raise e
         except Exception as e:
