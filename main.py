@@ -282,15 +282,16 @@ async def handler(websocket):
     """
     info_log(msg=f"New client: {websocket.id}")
     try:
-        # first message must be of type "new_game" or "join_game"
-        event = json.loads(await websocket.recv())
-        event_type = event.get("type")
-        if (event_type == "new_game"):
-            await start_game(websocket)
-        elif (event_type == "join_game"):
-            await ensure_content_fields(websocket, event, "token")
-            await join_game(websocket, event["content"]["token"])
-        # else just wait for another message
+        while True:
+            # first message must be of type "new_game" or "join_game"
+            event = json.loads(await websocket.recv())
+            event_type = event.get("type")
+            if (event_type == "new_game"):
+                await start_game(websocket)
+            elif (event_type == "join_game"):
+                await ensure_content_fields(websocket, event, "token")
+                await join_game(websocket, event["content"]["token"])
+            # else just wait for another message
     finally:
         info_log(msg=f"Client {websocket.id} disconnected.")
 
