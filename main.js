@@ -7,8 +7,6 @@ let gameFinished = false
 
 window.addEventListener("DOMContentLoaded", () => {
     // Initialize the UI
-    // TODO refactor and initialize UI via a createBoard() method from the import.
-    // const board = document.getElementById("board")
     const board = createBoard()
     const newGameButton = document.getElementById("new_game")
     const joinGameButton = document.getElementById("join_game")
@@ -55,7 +53,7 @@ function receiveMoves(board, websocket) {
                 // display the token
                 const tokenElement = document.getElementById("token")
                 tokenElement.textContent = "'" + token + "'"
-                // TODO clear the board
+                redrawBoard(board)
                 setNotification("Waiting for Player 2.")
                 break;
 

@@ -5,12 +5,22 @@ The server should now cancel the waiting of player 1 and inform that player 2 di
 """
 
 import asyncio
+import logging
 import websockets
 from tictactoe import TicTacToe
 import json
-import my_logger
-from my_logger import info_log
 import secrets
+from logformatter import MyLoggerFormatter
+
+
+# initialize our own custom logging
+logger = logging.getLogger(__name__)
+logger_level = logging.DEBUG
+logger.setLevel(logger_level)
+ch = logging.StreamHandler()
+ch.setLevel(logger_level)
+ch.setFormatter(MyLoggerFormatter())
+logger.addHandler(ch)
 
 
 """
@@ -45,7 +55,7 @@ async def start_game(websocket):
         "tasks": set()
     }
 
-    info_log(id=f"GAME({token})", msg="Player 1 connected to game.")
+    logger.info(f"GAME({token}) - Player 1 connected to game.")
 
     # send the user the connection token for the new game
     try:
@@ -73,11 +83,11 @@ async def start_game(websocket):
                 }
                 await websocket.send(json.dumps(stop_event))
             except Exception as e:
-                info_log(msg=f"There was an unexpected exception: {e}.")
+                logger.error(f"There was an unexpected exception: {e}.")
         except Exception:
             # Player 1 disconnected, or there was another error. Either way, the game cannot continue so inform player 2
             # first remove the task correcponding to player 1 from the set, then cancel player 2's task
-            info_log(id=f"GAME({token})", msg="Player 1 disconnected.")
+            logger.info(f"GAME({token}) - Player 1 disconnected.")
             GAMES[token]["tasks"].discard(task)
             for task in GAMES[token]["tasks"]:
                 task.cancel()
@@ -110,7 +120,7 @@ async def join_game(websocket, token: str):
 
     # add Player 2 to the game
     players.append(websocket)
-    info_log(id=f"GAME({token})", msg="Player 2 connected to game.")
+    logger.info(f"GAME({token}) - Player 2 connected to game.")
 
     # start the game for both players
     try:
@@ -119,7 +129,7 @@ async def join_game(websocket, token: str):
         }
         await send_to_players(event, players)
     except Exception as e:
-        info_log(msg=f"An error happened while trying to start the game: {e}.")
+        logger.error(f"An error happened while trying to start the game: {e}.")
         return
 
     # enter the main game loop
@@ -139,11 +149,11 @@ async def join_game(websocket, token: str):
             }
             await websocket.send(json.dumps(stop_event))
         except Exception as e:
-            info_log(msg=f"There was an unexpected exception: {e}.")
+            logger.error(msg=f"There was an unexpected exception: {e}.")
     except Exception:
         # Player 2 disconnected, or there was another error. Either way, the game cannot continue so inform player 1
         # first remove the task correcponding to player 2 from the set, then cancel player 1's task
-        info_log(id=f"GAME({token})", msg="Player 2 disconnected.")
+        logger.info(f"GAME({token}) - Player 2 disconnected.")
         GAMES[token]["tasks"].discard(task)
         for task in GAMES[token]["tasks"]:
             task.cancel()
@@ -217,14 +227,7 @@ async def game_turn_loop(token: str, player: int):
         except websockets.ConnectionClosedOK as e:
             raise e
         except Exception as e:
-            info_log(msg=f"An unexpected error occurred: {e}")
-            # event = {
-            #     "type": "game_stopped",
-            #     "content": {
-            #         "msg": "The game stopped."
-            #     }
-            # }
-            # await send_to_players(event, players)
+            logger.error(msg=f"An unexpected error occurred: {e}")
             raise e
 
 
@@ -280,7 +283,7 @@ async def handler(websocket):
 
     Player_1 uses crosses ('x') and player_2 uses circles ('o') to tick off a box.
     """
-    info_log(msg=f"New client: {websocket.id}")
+    logger.debug(f"New client: {websocket.id}")
     try:
         while True:
             # first message must be of type "new_game" or "join_game"
@@ -292,16 +295,20 @@ async def handler(websocket):
                 await ensure_content_fields(websocket, event, "token")
                 await join_game(websocket, event["content"]["token"])
             # else just wait for another message
+    except websockets.ConnectionClosedOK:
+        pass
+    except Exception as e:
+        logger.error(f"There was an uncaught exception: {e}.")
     finally:
-        info_log(msg=f"Client {websocket.id} disconnected.")
+        logger.debug(f"Client {websocket.id} disconnected.")
 
 
 async def websockets_main():
+    logger.info("Starting server")
     async with websockets.serve(handler, "", 8001):
         await asyncio.Future()
 
 
 if __name__ == '__main__':
-    my_logger.setup()
     asyncio.run(websockets_main())
     
