@@ -175,6 +175,7 @@ async def game_turn_loop(token: str, player: int):
                 await send_error(websocket, "Malformed request.")
                 continue
             if event_type != "make_move":
+                # TODO the player might want to start a new game during an activate game.
                 await send_error(websocket, "Illegal request. Please send your move.")
                 continue
             
