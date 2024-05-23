@@ -58,7 +58,7 @@ function receiveMoves(board, websocket) {
                 break;
 
             case "game_started":
-                setNotification("The game has started!")
+                setNotification("The game has started! You are player " + event.content.player + ".")
                 break
 
             case "move_made":
@@ -66,7 +66,7 @@ function receiveMoves(board, websocket) {
                 if (gameFinished) {
                     gameFinished = false
                     redrawBoard(board)
-                    setNotification("New game has started!")
+                    setNotification("New game has started! You are player " + event.content.player + ".")
                 }
                 playMove(board, event.content.player, event.content.row, event.content.column)
                 break;

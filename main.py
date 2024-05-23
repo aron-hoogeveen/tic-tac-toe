@@ -121,10 +121,20 @@ async def join_game(websocket, token: str):
 
     try:
         # start the game for both players
-        event = {
-            "type": "game_started"
+        event_player_1 = {
+            "type": "game_started",
+            "content": {
+                "player": 1
+            }
         }
-        await send_to_players(event, players)
+        event_player_2 = {
+            "type": "game_started",
+            "content": {
+                "player": 2
+            }
+        }
+        await players[0].send(json.dumps(event_player_1))
+        await players[1].send(json.dumps(event_player_2))
 
         # enter the main game loop
         task = asyncio.create_task(game_turn_loop(token, 2))
