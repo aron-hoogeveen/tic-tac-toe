@@ -12,13 +12,11 @@ class TicTacToe:
     player_1 = 1
     player_2 = 2
 
-    current_player = player_1
-    """0 -> Draw, 1 -> Player 1, 2 -> Player 2."""
-    winner = None
-
-    # 3x3 board. 0 means empty.
-    _board = [[0 for _ in range(3)] for _ in range(3)]
-    _number_of_moves = 0
+    def __init__(self) -> None:
+        self.current_player = self.player_1
+        self.winner = None  # 0 -> Draw, 1 -> Player 1, 2 -> Player 2
+        self._board = [[0 for _ in range(3)] for _ in range(3)]
+        self._number_of_moves = 0
 
     def make_move(self, row: int, column: int) -> tuple[int, int, bool] | None:
         """Make a move.
@@ -121,9 +119,5 @@ class TicTacToe:
         """Returns a copy of the board."""
         return deepcopy(self._board)
     
-    def __str__(self) -> str:
-        row_str = ""
-        for row in self.board:
-            row_str = " ".join(list(map(str, row)))
-            row_str = "\n".join(row_str, "\n")
-        return row_str
+    def __repr__(self) -> str:
+        return self.board.__repr__()
