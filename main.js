@@ -103,12 +103,6 @@ function sendMoves(board, websocket) {
             return
         }
 
-        // if a previous game was finished, redraw the board first
-        if (gameFinished) {
-            redrawBoard(board)
-            gameFinished = false
-        }
-
         const event = {
             type: "make_move",
             content: {
