@@ -1,4 +1,4 @@
-const playerTick = ["x", "o"]
+const playerTick = ["X", "O"]
 
 
 function createBoard() {
