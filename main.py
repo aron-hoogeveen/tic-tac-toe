@@ -1,9 +1,3 @@
-"""
-If one of two players disconnects, the game should end as soon as possible for both players.
-It may be the case that the game is waiting for a message of player 1, during which player 2 disconnects.
-The server should now cancel the waiting of player 1 and inform that player 2 disconnected and then delete the game.
-"""
-
 import asyncio
 import logging
 import websockets
@@ -25,16 +19,16 @@ logger.addHandler(ch)
 
 """
 {
-    "token_identifier": [
+    "token": [
         "game": TicTacToe(),
         "players": [
             p1_websocket,
             p2_websocket
         ],
-        "tasks": [
+        "tasks": {
             asyncio.Task,  # game_turn_loop() for player 1
             asyncio.Task   # game_turn_loop() for player 2
-        ]
+        }
     ]
 }
 """
@@ -68,20 +62,23 @@ async def start_game(websocket):
         await websocket.send(json.dumps(event))
 
         try:
+            # start a new task for the game. This enables cancelling of the game via that task
             task = asyncio.create_task(game_turn_loop(token, 1))
             GAMES[token]["tasks"].add(task)
             task.add_done_callback(GAMES[token]["tasks"].discard)
-            await task  # actually wait for the main game loop to finish
+            await task  # actually wait for the main game loop to finish before returning
         except asyncio.CancelledError:
             # The other player has disconnected and the game was stopped.
             try:
-                stop_event = {
+                event = {
                     "type": "game_stopped",
                     "content": {
                         "msg": "The other player has disconnected."
                     }
                 }
-                await websocket.send(json.dumps(stop_event))
+                await websocket.send(json.dumps(event))
+            except websockets.ConnectionClosedOK:
+                pass  # the already ended, so it is no problem if player 1 now disconnects
             except Exception as e:
                 logger.error(f"There was an unexpected exception: {e}.")
         except Exception:
@@ -89,7 +86,7 @@ async def start_game(websocket):
             # first remove the task correcponding to player 1 from the set, then cancel player 2's task
             logger.info(f"({token}) - Player 1 disconnected.")
             GAMES[token]["tasks"].discard(task)
-            for task in GAMES[token]["tasks"]:
+            for task in GAMES[token]["tasks"]:  # actually, there 'should' only be 1 task now so we could use set.pop()
                 task.cancel()
     finally:
         del GAMES[token]
@@ -122,18 +119,14 @@ async def join_game(websocket, token: str):
     players.append(websocket)
     logger.info(f"({token}) - Player 2 connected to game.")
 
-    # start the game for both players
     try:
+        # start the game for both players
         event = {
             "type": "game_started"
         }
         await send_to_players(event, players)
-    except Exception as e:
-        logger.error(f"An error happened while trying to start the game: {e}.")
-        return
 
-    # enter the main game loop
-    try:
+        # enter the main game loop
         task = asyncio.create_task(game_turn_loop(token, 2))
         GAMES[token]["tasks"].add(task)
         task.add_done_callback(GAMES[token]["tasks"].discard)
@@ -228,7 +221,7 @@ async def game_turn_loop(token: str, player: int):
                 await send_to_players(move_event, players)
             logger.debug(f"End of game loop: {{token: {token}, GAMES:{GAMES[token]}}}")
         except websockets.ConnectionClosedOK as e:
-            raise e
+            raise e  # the exception is handled higher up the chain
         except Exception as e:
             logger.error(msg=f"An unexpected error occurred: {e}")
             raise e
@@ -278,14 +271,7 @@ async def send_to_players(event: dict, players: list[websockets.WebSocketServerP
 
 
 async def handler(websocket):
-    """TicTacToe Websocket handler.
-    
-    This server only supports two players and a single game. Whoever connects first will be
-    player_1, and the next person will be player_2. If one of the two players disconnects, the game
-    will end prematurely.
-
-    Player_1 uses crosses ('x') and player_2 uses circles ('o') to tick off a box.
-    """
+    """TicTacToe Websocket handler."""
     logger.debug(f"New client: {websocket.id}")
     try:
         while True:
