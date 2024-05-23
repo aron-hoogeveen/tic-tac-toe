@@ -15,7 +15,7 @@ from logformatter import MyLoggerFormatter
 
 # initialize our own custom logging
 logger = logging.getLogger(__name__)
-logger_level = logging.DEBUG
+logger_level = logging.INFO
 logger.setLevel(logger_level)
 ch = logging.StreamHandler()
 ch.setLevel(logger_level)
@@ -55,7 +55,7 @@ async def start_game(websocket):
         "tasks": set()
     }
 
-    logger.info(f"GAME({token}) - Player 1 connected to game.")
+    logger.info(f"({token}) - Player 1 connected to game.")
 
     # send the user the connection token for the new game
     try:
@@ -87,12 +87,13 @@ async def start_game(websocket):
         except Exception:
             # Player 1 disconnected, or there was another error. Either way, the game cannot continue so inform player 2
             # first remove the task correcponding to player 1 from the set, then cancel player 2's task
-            logger.info(f"GAME({token}) - Player 1 disconnected.")
+            logger.info(f"({token}) - Player 1 disconnected.")
             GAMES[token]["tasks"].discard(task)
             for task in GAMES[token]["tasks"]:
                 task.cancel()
     finally:
         del GAMES[token]
+        logger.debug(f"Game with token '{token}' has been deleted.")
 
 
 async def join_game(websocket, token: str):
@@ -119,8 +120,7 @@ async def join_game(websocket, token: str):
 
     # add Player 2 to the game
     players.append(websocket)
-    logger.info(f"GAME({token}) - Player 2 connected to game.")
-    logger.debug(GAMES[token])
+    logger.info(f"({token}) - Player 2 connected to game.")
 
     # start the game for both players
     try:
@@ -166,7 +166,8 @@ async def game_turn_loop(token: str, player: int):
     """
     while True:
         try:
-            logger.debug(f"Start of game loop: {{token: {token}, GAMES:{GAMES[token]}}}")
+            logger.debug(f"({token}) - GAMES: {GAMES}")  # check if games are not influenced by each other
+
             websocket = GAMES[token]["players"][player-1]
             game = GAMES[token]["game"]
             players = GAMES[token]["players"]
